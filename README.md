@@ -5,24 +5,16 @@ Un client web pour synchroniser des données avec un backend
 ## Features
 
 - Synchronisation de données avec le backend
-- Affichage de la liste des répertoires
-- Affichage des détails d'un répertoire
-- Création de nouveaux répertoires
-- Mise à jour des informations de répertoire
+- Affichage d'un tableau de bord
+- Gestion de la liste des répertoires
 
 ## Installation
 
-[
-  "cd readme-sync-frontend && npm install",
-  "pip install -r backend/requirements.txt"
-]
+cd readme-sync-frontend && npm install && pip install -r backend/requirements.txt
 
 ## Usage
 
-[
-  "cd readme-sync-frontend && npm run build",
-  "cd readme-sync-frontend && npm run dev"
-]
+npm run build && npm run dev
 
 ## Technologies
 
@@ -31,31 +23,10 @@ Un client web pour synchroniser des données avec un backend
 - Flask
 - React
 - Vite
-- npm
-- pip
 
 ## Project Structure
 
-{
-  "dirs": [
-    "backend",
-    "readme-sync-frontend"
-  ],
-  "files": []
-}
-
-## Configuration
-
-{
-  "config.py": {
-    "database": {
-      "host": "localhost",
-      "port": 5432,
-      "username": "admin",
-      "password": "password"
-    }
-  }
-}
+Un dossier racine avec des sous-dossiers pour les fichiers et les dossiers du projet
 
 ## License
 

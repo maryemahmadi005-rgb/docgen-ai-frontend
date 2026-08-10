@@ -1,0 +1,43 @@
+# {{ title }}
+
+{{ description }}
+
+{% if features %}
+## Features
+
+{% for feature in features %}
+- {{ feature }}
+{% endfor %}
+
+{% endif %}
+## Installation
+
+{{ installation }}
+
+## Usage
+
+{{ usage }}
+
+{% if technologies %}
+## Technologies
+
+{% for tech in technologies %}
+- {{ tech }}
+{% endfor %}
+
+{% endif %}
+{% if project_structure %}
+## Project Structure
+
+{{ project_structure }}
+
+{% endif %}
+{% if configuration %}
+## Configuration
+
+{{ configuration }}
+
+{% endif %}
+## License
+
+{{ license }}

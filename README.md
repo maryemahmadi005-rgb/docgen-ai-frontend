@@ -1,12 +1,12 @@
 # Project Documentation
 
-Analyser et générer des documents de synthèse pour les projets Open Source
+Analyser et générer des documents de synthèse automatiquement à partir d'un code source
 
 ---
 
 ## Fonctionnement général
 
-Le flux réel fonctionne comme suit : une requête HTTP est envoyée à l'endpoint API /api/health, qui renvoie un JSON contenant le statut du serveur. Le client frontend (readme-sync-frontend) envoie ensuite une requête POST à l'endpoint API /auth/refresh pour obtenir un token de refresh, qui est utilisé pour authentifier les appels suivants.
+Le projet utilise une approche de génération de document de synthèse basée sur l'analyse du code source. Lorsqu'une requête est envoyée au serveur, le système analyse le code source et génère un document de synthèse en fonction des informations contenues dans le code.
 
 ---
 
@@ -22,37 +22,28 @@ Le flux réel fonctionne comme suit : une requête HTTP est envoyée à l'endpoi
 
 ## Modules principaux
 
-### backend/app/__init__.py
+### Backend
 **Fichier :** `backend/app/__init__.py`
 
-**Rôle :** Crée l'application Flask et configure les extensions
+**Rôle :** Gère les appels HTTP vers Ollama et la validation du JSON retourné
 
 **Classes principales :** `Flask`, `get_config`, `db`, `migrate`, `jwt`, `cors`
-**Fonctions importantes :** `create_app`, `health`
-**Dépendances internes :** `flask`, `requests`, `itsdangerous`, `werkzeug`
-### backend/app/api/auth.py
-**Fichier :** `backend/app/api/auth.py`
+**Dépendances internes :** `Flask`, `Python`
+**Routes exposées :** `/api/health`
+### Frontend
+**Fichier :** `readme-sync-frontend/src/App.jsx`
 
-**Rôle :** Gère les appels d'authentification et de refresh token
+**Rôle :** Affiche le document de synthèse généré par le backend
 
-**Classes principales :** `Blueprint`, `URLSafeTimedSerializer`, `generate_password_hash`, `check_password_hash`
-**Fonctions importantes :** `register_blueprints`, `_oauth_serializer`, `_create_github_state`
-**Dépendances internes :** `flask`, `requests`, `itsdangerous`, `werkzeug`
-**Routes exposées :** `{'endpoint': '/api/auth/register', 'methods': ['POST']}`, `{'endpoint': '/api/auth/login', 'methods': ['POST']}`
-### readme-sync-frontend/src/api/client.js
-**Fichier :** `readme-sync-frontend/src/api/client.js`
-
-**Rôle :** Envoie les requêtes HTTP à l'endpoint API /auth/refresh
-
-**Fonctions importantes :** `POST`, `_oauth_serializer`
-**Dépendances internes :** `axios`
-**Routes exposées :** `{'endpoint': '${API_URL}/auth/refresh', 'methods': ['POST']}`
+**Classes principales :** `App`, `useEffect`
+**Dépendances internes :** `React`
+**Routes exposées :** `/api/refresh`
 
 ---
 
 ## Flux de données
 
-Flux non détecté.
+Le flux de données se compose des appels HTTP entre le frontend et le backend, ainsi que les requêtes à l'API Ollama. Le backend analyse le code source et génère un document de synthèse qui est ensuite envoyé au frontend pour être affiché.
 
 ---
 
@@ -103,7 +94,60 @@ Aucune dépendance importante détectée.
 
 ---
 
+## Installation
+
+**Prérequis**
+
+- Python 3.11+
+
+**Installation backend**
+
+- docker-compose up -d
+- python backend/app/__init__.py
+
+**Installation frontend**
+
+- npm install
+- npm run build
+
+**Configuration**
+
+- .env.example
+
+**Services externes**
+
+- Ollama
+- Docker
+
+**Commandes de démarrage**
+
+- docker-compose up -d
+
+
+---
+
+## Usage
+
+**Démarrage de l'application**
+
+- docker-compose up -d
+- npm install
+- npm run build
+
+**API principale**
+
+- /api/health
+- /api/auth/register
+- /api/auth/login
+- /api/auth/refresh
+
+**Exemple d'utilisation**
+
+- curl -X POST https://localhost:5173/api/auth/refresh
+
+
+---
+
 ## Recommandations
 
-- {'type': "erreur de gestion d'erreur", 'description': "L'endpoint API /api/health n'a pas de gestion d'erreur pour les erreurs HTTP"}
-- {'type': 'dépendance non utilisée', 'description': "La dépendance 'requests' n'est pas utilisée dans le code"}
+Aucune recommandation spécifique détectée.

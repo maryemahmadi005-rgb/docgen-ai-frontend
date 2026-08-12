@@ -1,5 +1,5 @@
 """
-AI Service — client unique pour Ollama.
+AI Service — client unique pour Ollama.dzdzdddddssdcccccccccccccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 
 Responsable uniquement des interactions avec le LLM.
 

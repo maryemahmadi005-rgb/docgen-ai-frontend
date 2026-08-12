@@ -19,6 +19,7 @@ nana nanan ananananananana nqjdnzjdnkdncejfvnesvsjefvvvvvvvvvvvvvvdfvsqsdc
   (file_structure, important_files, install_scripts, ...) ne doit
   fuiter dans la sortie : ces données restent des preuves internes
   utilisées uniquement pour construire le prompt.
+  fvsbfr gngnnf nndd fnfnrfr,jrnrne,ejejeneej
 
 NOTE CONTEXTE OLLAMA :
 Le nombre de preuves envoyées (fichiers de code, structure, endpoints...)

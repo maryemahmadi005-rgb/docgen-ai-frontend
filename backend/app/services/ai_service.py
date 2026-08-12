@@ -75,6 +75,7 @@ class AIService:
     # ============================================================
     DEFAULT_MAX_CODE_EVIDENCE_FILES = 20
     DEFAULT_MAX_CODE_EVIDENCE_CHARS_PER_FILE = 3000
+    # Test automatic synchronization
 
     CONFIG_FILE_BASENAMES = (
         "package.json",

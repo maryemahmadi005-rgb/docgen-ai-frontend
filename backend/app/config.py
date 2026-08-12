@@ -1,5 +1,7 @@
 import os
 from datetime import timedelta
+from dotenv import load_dotenv
+load_dotenv()
 
 
 class Config:
@@ -31,6 +33,10 @@ class Config:
 
     # --- GitHub ---
     GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID", "")
+    GITHUB_WEBHOOK_CALLBACK_URL = os.environ.get(
+        "GITHUB_WEBHOOK_CALLBACK_URL",
+        "",
+        )
     GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET", "")
     GITHUB_REDIRECT_URI = os.environ.get(
         "GITHUB_REDIRECT_URI",

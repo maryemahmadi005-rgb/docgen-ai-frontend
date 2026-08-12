@@ -14,8 +14,8 @@ from datetime import datetime, timezone
 
 from app.services.ai_service import AIService, AIServiceError
 from app.services.diff_analyzer_service import DetectedChange
-from app.utils.markdown_renderer import render_readme
-from app.utils.impact_rules import FEATURE_PATH_HINTS
+from app.services.markdown_renderer import render_readme
+from app.services.impact_rules import FEATURE_PATH_HINTS
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +42,12 @@ class Patch:
         )
 
 
-# Sections dont le contenu est une liste (features, technologies) vs texte libre
-LIST_SECTIONS = {"features", "technologies"}
+# Sections dont le contenu est une liste vs texte libre — doit rester aligné
+# sur les vrais types utilisés par le template (readme_template.md.j2) et
+# AIService.README_SCHEMA. N'affecte que la valeur par défaut utilisée quand
+# une clé serait absente de sections_json (cas normalement rare : la
+# génération initiale peuple toujours les 10 clés).
+LIST_SECTIONS = {"technologies", "main_modules", "entry_points", "api_endpoints", "recommendations"}
 
 
 class ReadmeUpdaterService:
@@ -112,14 +116,20 @@ class ReadmeUpdaterService:
         Associe les fichiers modifiés à la section qu'ils justifient,
         pour donner un contexte ciblé à l'IA plutôt que tous les fichiers du commit.
         """
+        # Clés alignées sur README_SCHEMA (voir impact_rules.py pour le
+        # détail du bug corrigé : ces clés doivent correspondre aux vraies
+        # sections du README, pas à des noms inventés).
+        feature_predicate = lambda fc: any(hint in fc.path.lower() for hint in FEATURE_PATH_HINTS) or fc.change_type == "added"
+        dependency_predicate = lambda fc: any(fc.path.endswith(ext) for ext in
+                                               ["requirements.txt", "package.json", "Pipfile", "go.mod", "pyproject.toml", "Gemfile"])
         mapping = {
-            "features": lambda fc: any(hint in fc.path.lower() for hint in FEATURE_PATH_HINTS) or fc.change_type == "added",
-            "technologies": lambda fc: any(fc.path.endswith(ext) for ext in
-                                            ["requirements.txt", "package.json", "Pipfile", "go.mod"]),
-            "installation": lambda fc: "script" in fc.path.lower() or fc.path in
+            "main_modules": feature_predicate,
+            "api_endpoints": feature_predicate,
+            "technologies": dependency_predicate,
+            "important_dependencies": dependency_predicate,
+            "general_operation": lambda fc: "script" in fc.path.lower() or fc.path in
                                         ("Makefile", "requirements.txt", "package.json"),
-            "configuration": lambda fc: "config" in fc.path.lower() or fc.path.startswith("."),
-            "license": lambda fc: "license" in fc.path.lower(),
+            "architecture": lambda fc: "config" in fc.path.lower() or fc.path.startswith("."),
         }
 
         predicate = mapping.get(section_name)
@@ -137,11 +147,16 @@ class ReadmeUpdaterService:
         Persiste le patch dans generated_readmes.
         Aucun appel IA ici — pure écriture.
         Retourne le contenu markdown final.
+
+        Fix: readme_repository n'expose pas de méthode générique .update() —
+        seulement get_or_create_for_repository()/update_content(instance, ...).
+        L'appel précédent (self.readme_repository.update(repository_id=...))
+        levait AttributeError à chaque tentative de publication.
         """
         if not patch.sections_json:
             raise ReadmeUpdaterError("Patch invalide: sections_json vide.")
 
-        self.readme_repository.update(
+        self.readme_repository.get_or_create_for_repository(
             repository_id=patch.repository_id,
             sections_json=patch.sections_json,
             content_md=patch.rendered_md,

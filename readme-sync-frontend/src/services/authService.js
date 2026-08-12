@@ -1,66 +1,94 @@
-import { mockUser } from './mockData'
+import { api, saveAccessToken, clearTokens } from './api'
 
 // ---------------------------------------------------------------------------
-// Fausse authentification (mock). À remplacer plus tard par des appels à
-// POST /api/auth/login, /api/auth/register, /api/auth/forgot-password
-// via services/api.js. La forme des fonctions (async, retour { user, token })
-// est déjà celle attendue une fois le backend Flask branché.
+// Login
 // ---------------------------------------------------------------------------
 
-const FAKE_DELAY = 600
+export async function login({ email, password }) {
+  const data = await api.post('/auth/login', {
+    email,
+    password,
+  })
 
-function delay(ms = FAKE_DELAY) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+  if (!data.access_token) {
+    throw new Error('Le serveur n’a pas retourné de access_token.')
+  }
+
+  if (!data.refresh_token) {
+    throw new Error('Le serveur n’a pas retourné de refresh_token.')
+  }
+
+  // Access token utilisé pour les requêtes normales
+  saveAccessToken(data.access_token)
+
+  // Refresh token utilisé pour renouveler automatiquement
+  localStorage.setItem(
+    'readme_sync_refresh_token',
+    data.refresh_token,
+  )
+
+  return {
+    user: data.user,
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+  }
 }
 
-export async function loginMock({ email, password }) {
-  await delay()
-  if (!email || !password) {
-    throw new Error('Email et mot de passe requis.')
+// ---------------------------------------------------------------------------
+// Register
+// ---------------------------------------------------------------------------
+
+export async function register({ name, email, password }) {
+  const data = await api.post('/auth/register', {
+    name,
+    email,
+    password,
+  })
+
+  if (!data.access_token) {
+    throw new Error('Le serveur n’a pas retourné de access_token.')
   }
-  if (password.length < 4) {
-    throw new Error('Identifiants incorrects.')
+
+  if (!data.refresh_token) {
+    throw new Error('Le serveur n’a pas retourné de refresh_token.')
   }
-  const token = 'mock-token-' + btoa(email).slice(0, 16)
-  const user = { ...mockUser, email }
-  return { user, token }
+
+  saveAccessToken(data.access_token)
+
+  localStorage.setItem(
+    'readme_sync_refresh_token',
+    data.refresh_token,
+  )
+
+  return {
+    user: data.user,
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+  }
 }
 
-export async function registerMock({ name, email, password }) {
-  await delay()
-  if (!name || !email || !password) {
-    throw new Error('Tous les champs sont requis.')
-  }
-  const token = 'mock-token-' + btoa(email).slice(0, 16)
-  const user = { ...mockUser, name, email, avatarInitials: initials(name) }
-  return { user, token }
+// ---------------------------------------------------------------------------
+// Current user
+// ---------------------------------------------------------------------------
+
+export async function getCurrentUser() {
+  return api.get('/auth/me')
 }
 
-export async function forgotPasswordMock({ email }) {
-  await delay()
-  if (!email) throw new Error('Email requis.')
-  return { message: `Si un compte existe pour ${email}, un lien a été envoyé.` }
+// ---------------------------------------------------------------------------
+// Logout
+// ---------------------------------------------------------------------------
+
+export function logout() {
+  clearTokens()
 }
 
-function initials(name) {
-  return name
-    .split(' ')
-    .map((p) => p[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
+// ---------------------------------------------------------------------------
+// Forgot password
+// ---------------------------------------------------------------------------
+
+export async function forgotPassword({ email }) {
+  return api.post('/auth/forgot-password', {
+    email,
+  })
 }
-
-/*
-  Intégration future avec Flask (une fois le backend prêt) :
-
-  export async function login({ email, password }) {
-    return api.post('/auth/login', { email, password })
-  }
-  export async function register({ name, email, password }) {
-    return api.post('/auth/register', { name, email, password })
-  }
-  export async function forgotPassword({ email }) {
-    return api.post('/auth/forgot-password', { email })
-  }
-*/

@@ -11,6 +11,7 @@ Commit Detector / Sync Orchestrator (fetch, diff, commit, push).
 """
 
 from __future__ import annotations
+from git import Actor
 
 import logging
 import os
@@ -21,7 +22,7 @@ from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import urlparse, urlunparse
 
-from git import Repo, GitCommandError, Actor
+from git import Repo, GitCommandError
 from git.exc import InvalidGitRepositoryError, NoSuchPathError
 
 
@@ -667,7 +668,7 @@ class GitService:
 
     # ============================================================
     # COMMIT + PUSH
-    # ============================================================
+        # ============================================================
 
     def commit_and_push(
         self,
@@ -683,46 +684,87 @@ class GitService:
         git add + commit + push.
 
         Retourne le SHA du nouveau commit.
-
-        Le bot utilise une identité dédiée afin que le Commit Detector
-        puisse éventuellement ignorer ses propres commits.
         """
 
         repo = self._open_repo(local_path)
 
+        print(
+            f"📤 [GIT] COMMIT + PUSH START — "
+            f"path={local_path} — "
+            f"files={file_paths}"
+        )
+
         try:
+            # --------------------------------------------------
+            # 1. ADD
+            # --------------------------------------------------
             repo.index.add(file_paths)
 
-            # Aucun changement.
+            print(
+                f"➕ [GIT] FILES ADDED — "
+                f"files={file_paths}"
+            )
+
+            # --------------------------------------------------
+            # 2. Vérifier s'il y a réellement des changements
+            # --------------------------------------------------
             if not repo.index.diff("HEAD"):
-                logger.info(
-                    "Aucun changement à committer."
+                current_sha = repo.head.commit.hexsha
+
+                print(
+                    f"⚠️ [GIT] NO CHANGES — "
+                    f"SHA={current_sha}"
                 )
 
-                return repo.head.commit.hexsha
+                return current_sha
 
-            # Identité Git du bot.
+            # --------------------------------------------------
+            # 3. Auteur
+            # --------------------------------------------------
             author = Actor(
                 author_name,
                 author_email,
-            )
-
-            # Création du commit.
+                )
+            # --------------------------------------------------
+            # 4. COMMIT
+            # --------------------------------------------------
             commit = repo.index.commit(
                 commit_message,
                 author=author,
                 committer=author,
             )
 
-            # Ajouter le token uniquement pour le push.
+            print(
+                f"✅ [GIT] COMMIT CREATED — "
+                f"sha={commit.hexsha} — "
+                f"message='{commit_message}'"
+            )
+
+            # --------------------------------------------------
+            # 5. Authentification GitHub
+            # --------------------------------------------------
             if auth_token:
                 self._inject_token_in_remote(
                     repo,
                     auth_token,
                 )
 
+                print(
+                    "🔐 [GIT] AUTH TOKEN INJECTED"
+                )
+            else:
+                print(
+                    "⚠️ [GIT] NO AUTH TOKEN PROVIDED"
+                )
+
+            # --------------------------------------------------
+            # 6. Remote
+            # --------------------------------------------------
             origin = repo.remotes.origin
 
+            # --------------------------------------------------
+            # 7. Branche cible
+            # --------------------------------------------------
             if branch:
                 target_branch = branch
             else:
@@ -731,10 +773,36 @@ class GitService:
                 except TypeError:
                     target_branch = repo.head.reference.name
 
-            origin.push(
-                refspec=(
-                    f"HEAD:refs/heads/{target_branch}"
-                )
+            print(
+                f"🌿 [GIT] PUSH TARGET — "
+                f"branch={target_branch}"
+            )
+
+            # --------------------------------------------------
+            # 8. PUSH
+            # --------------------------------------------------
+            print(
+                f"🚀 [GIT] PUSH START — "
+                f"branch={target_branch}"
+            )
+
+            push_results = origin.push(
+                refspec=f"HEAD:refs/heads/{target_branch}"
+            )
+
+            # --------------------------------------------------
+            # 9. Vérifier résultat du push
+            # --------------------------------------------------
+            for result in push_results:
+                if result.flags & result.ERROR:
+                    raise GitServiceError(
+                        f"GitHub push refusé: {result.summary}"
+                    )
+
+            print(
+                f"🎉 [GIT] PUSH SUCCESS — "
+                f"sha={commit.hexsha} — "
+                f"branch={target_branch}"
             )
 
             logger.info(
@@ -745,6 +813,11 @@ class GitService:
             return commit.hexsha
 
         except GitCommandError as exc:
+            print(
+                f"❌ [GIT] COMMIT/PUSH ERROR — "
+                f"{exc}"
+            )
+
             logger.error(
                 "Échec commit/push sur %s: %s",
                 local_path,
@@ -754,6 +827,12 @@ class GitService:
             raise GitServiceError(
                 f"Impossible de committer/pusher: {exc}"
             ) from exc
+
+
+
+    # ============================================================
+    # REPOSITORY HELPERS
+    # ============================================================
 
     def _open_repo(
         self,
@@ -774,16 +853,20 @@ class GitService:
                 f"Clone local introuvable ou invalide: {local_path}"
             ) from exc
 
-
     def get_current_head_sha(
         self,
         local_path: str,
     ) -> str:
         """
         Retourne le SHA du commit HEAD actuel.
+
+        IMPORTANT :
+        hexsha est une propriété, pas une fonction.
         """
 
         repo = self._open_repo(local_path)
 
         return repo.head.commit.hexsha
+ 
+
 

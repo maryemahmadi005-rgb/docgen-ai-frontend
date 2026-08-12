@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 from app.services.ai_service import AIService, AIServiceError
 from app.services.git_service import FileChange
-from app.utils.impact_rules import match_static_rules, merge_impacts
+from app.services.impact_rules import match_static_rules, merge_impacts
 
 logger = logging.getLogger(__name__)
 

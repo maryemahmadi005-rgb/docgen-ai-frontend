@@ -1,0 +1,4 @@
+# Dépendances nécessaires pour exécuter la suite de tests (en plus de
+# requirements.txt de l'application : Flask, Flask-SQLAlchemy,
+# Flask-Migrate, Flask-JWT-Extended, Flask-Cors, GitPython, requests, Jinja2).
+pytest>=7.4

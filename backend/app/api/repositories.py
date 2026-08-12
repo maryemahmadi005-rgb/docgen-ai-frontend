@@ -1,6 +1,5 @@
-
 from __future__ import annotations
-import requests
+import os
 
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -264,22 +263,22 @@ def get_latest_analysis(repo_id: str):
 @jwt_required()
 def generate_readme(repo_id: str):
     """
-    Génération initiale complète du README.
+    Génération initiale du README pour un repository déjà tracké.
 
-    Workflow:
-        1. Récupérer repository
-        2. Récupérer GitHub token
-        3. Clone repository
-        4. Vérifier remote
+    Pipeline :
+
+        1. Récupération du repository
+        2. Récupération du token GitHub
+        3. Clone du repository
+        4. Vérification du remote
         5. Analyse statique
-        6. Génération README avec Ollama
-        7. Écrire README.md dans le clone
-        8. Sauvegarder README + version en DB
-        9. Commit + push vers GitHub
-        10. Mettre à jour last_synced_commit_sha
+        6. Génération README via IA
+        7. Sauvegarde README + version
+        8. Mise à jour du SHA synchronisé
     """
 
     user_id = get_jwt_identity()
+
     container = get_container()
 
     print(
@@ -287,69 +286,45 @@ def generate_readme(repo_id: str):
         f"repo_id={repo_id}"
     )
 
-    # ============================================================
+    # ========================================================
     # 1. GET REPOSITORY
-    # ============================================================
+    # ========================================================
 
-    repo = container.repository_repository.get_by_id(repo_id)
+    repo = (
+        container.repository_repository
+        .get_by_id(repo_id)
+    )
 
     if not repo or repo.user_id != user_id:
+
         print(
-            f"❌ [README] ERREUR — repository introuvable — "
-            f"repo_id={repo_id}"
+            f"❌ [README] ERREUR — "
+            f"étape=INIT — "
+            f"repo_id={repo_id} — "
+            f"repository introuvable"
         )
 
         return jsonify({
             "error": "Repository introuvable"
         }), 404
 
-    # ============================================================
+    # ========================================================
     # 2. GITHUB TOKEN
-    # ============================================================
+    # ========================================================
 
     auth_token = None
 
     if repo.user and repo.user.github_token:
+
         try:
-            auth_token = EncryptionService().decrypt(
-                repo.user.github_token
-            )
-            # TEST GITHUB TOKEN
-            response = requests.get(
-            "https://api.github.com/user",
-            headers={
-                "Authorization": f"Bearer {auth_token}",
-                "Accept": "application/vnd.github+json",
-                },
-            timeout=10,
-            )
 
-            print(
-                f"🔐 [GITHUB TEST] status={response.status_code}"
-)
-
-            if response.status_code == 200:
-                github_user = response.json().get("login")
-                print(
-                    f"✅ [GITHUB TEST] TOKEN VALIDE — "
-                    f"user={github_user}"
-                    )
-            else:
-                print(
-                    f"❌ [GITHUB TEST] TOKEN INVALIDE — "
-                    f"status={response.status_code}"
-                    )
-                return jsonify({
-                    "error": "GitHub token invalide ou expiré",
-                    "github_status": response.status_code,
-                    }), 401
-
-            print(
-                f"🔐 [GITHUB] TOKEN RÉCUPÉRÉ — "
-                f"repo_id={repo.id}"
+            auth_token = (
+                EncryptionService()
+                .decrypt(repo.user.github_token)
             )
 
         except EncryptionError as exc:
+
             current_app.logger.warning(
                 "Impossible de déchiffrer le token GitHub "
                 "pour user=%s: %s",
@@ -357,70 +332,80 @@ def generate_readme(repo_id: str):
                 exc,
             )
 
-            return jsonify({
-                "error": (
-                    "Impossible d'utiliser la connexion GitHub. "
-                    "Veuillez reconnecter votre compte GitHub."
-                )
-            }), 401
+            auth_token = None
 
-    if not auth_token:
-        return jsonify({
-            "error": (
-                "Compte GitHub non connecté ou token GitHub absent."
-            )
-        }), 401
-
-    # ============================================================
+    # ========================================================
     # 3. CLONE
-    # ============================================================
+    # ========================================================
 
     try:
 
-        local_path = container.git_service.clone_repository(
-            github_url=repo.github_url,
-            repository_id=repo.id,
-            auth_token=auth_token,
-            branch=repo.tracked_branch,
+        local_path = (
+            container.git_service
+            .clone_repository(
+                github_url=repo.github_url,
+                repository_id=repo.id,
+                auth_token=auth_token,
+
+                # Si tracked_branch existe, on l'utilise.
+                # Sinon GitService détecte automatiquement
+                # la branche par défaut du repository.
+                branch=repo.tracked_branch,
+            )
         )
 
         repo.local_clone_path = local_path
 
         container.session.flush()
 
-        print(
-            f"✅ [README] CLONE OK — "
-            f"repo_id={repo.id} — "
-            f"path={local_path}"
-        )
-
     except GitServiceError as exc:
 
         print(
-            f"❌ [README] ERREUR — CLONE — "
-            f"repo_id={repo.id} — {exc}"
+            f"❌ [README] ERREUR — "
+            f"étape=CLONE — "
+            f"repo_id={repo.id} — "
+            f"{exc}"
         )
 
         return jsonify({
             "error": f"Échec du clone du repository: {exc}"
         }), 502
 
-    # ============================================================
+    # ========================================================
     # 4. VERIFY CLONE
-    # ============================================================
+    # ========================================================
+    #
+    # IMPORTANT :
+    #
+    # NE PAS comparer directement :
+    #
+    #     origin_url == repo.github_url
+    #
+    # car origin peut contenir :
+    #
+    # https://x-access-token:TOKEN@github.com/...
+    #
+    # GitService.verify_remote_url() normalise les deux URLs
+    # et supprime les credentials avant comparaison.
+    # ========================================================
 
     try:
 
-        remote_ok = container.git_service.verify_remote_url(
-            local_path=local_path,
-            expected_url=repo.github_url,
+        remote_ok = (
+            container.git_service
+            .verify_remote_url(
+                local_path=local_path,
+                expected_url=repo.github_url,
+            )
         )
 
     except GitServiceError as exc:
 
         print(
-            f"❌ [README] ERREUR — VÉRIFICATION CLONE — "
-            f"repo_id={repo.id} — {exc}"
+            f"❌ [README] ERREUR — "
+            f"étape=VÉRIF CLONE — "
+            f"repo_id={repo.id} — "
+            f"{exc}"
         )
 
         return jsonify({
@@ -432,42 +417,81 @@ def generate_readme(repo_id: str):
 
     if not remote_ok:
 
+        normalized_expected = (
+            container.git_service
+            .normalize_git_url(repo.github_url)
+        )
+
+        try:
+            actual_origin = (
+                container.git_service
+                ._open_repo(local_path)
+                .remotes.origin.url
+            )
+
+            normalized_origin = (
+                container.git_service
+                .normalize_git_url(actual_origin)
+            )
+
+        except Exception:
+            normalized_origin = "<indisponible>"
+
         print(
-            f"❌ [README] ERREUR — REMOTE MISMATCH — "
-            f"repo_id={repo.id}"
+            f"❌ [README] ERREUR — "
+            f"étape=VÉRIF CLONE — "
+            f"repo_id={repo.id} — "
+            f"MISMATCH"
+        )
+
+        print(
+            f"   attendu={normalized_expected}"
+        )
+
+        print(
+            f"   trouvé={normalized_origin}"
         )
 
         return jsonify({
             "error": (
                 "Le clone local ne correspond pas "
-                "au repository demandé."
+                "au repository demandé. "
+                "Génération annulée pour éviter "
+                "un README incorrect."
             )
         }), 502
 
     print(
         f"✅ [README] VÉRIF CLONE OK — "
-        f"repo_id={repo.id}"
+        f"repo_id={repo.id} — "
+        f"repository="
+        f"{container.git_service.normalize_git_url(repo.github_url)}"
     )
 
-    # ============================================================
+    # ========================================================
     # 5. STATIC ANALYSIS
-    # ============================================================
+    # ========================================================
 
     try:
 
-        analysis = container.analyzer_service.analyze(
-            local_path,
-            repository_id=repo.id,
-        )
-
-        print(
-            f"🔎 [README] ANALYSE TERMINÉE — "
-            f"repo_id={repo.id}"
+        analysis = (
+            container.analyzer_service
+            .analyze(
+                local_path,
+                repository_id=repo.id,
+            )
         )
 
     except Exception as exc:
 
         container.rollback()
+
+        print(
+            f"❌ [README] ERREUR — "
+            f"étape=ANALYSE — "
+            f"repo_id={repo.id} — "
+            f"{exc}"
+        )
 
         current_app.logger.exception(
             "Erreur pendant l'analyse du repository"
@@ -479,9 +503,53 @@ def generate_readme(repo_id: str):
             )
         }), 502
 
-    # ============================================================
+    print(
+        f"🔎 [README] PREUVE ANALYSE — "
+        f"repo_id={repo.id} — "
+        f"important_files="
+        f"{analysis.important_files}"
+    )
+
+    if isinstance(
+        analysis.file_structure,
+        dict,
+    ):
+
+        root_structure = (
+            analysis.file_structure.get(
+                ".",
+                {},
+            )
+        )
+
+        if isinstance(
+            root_structure,
+            dict,
+        ):
+
+            top_level = list(
+                root_structure.get(
+                    "dirs",
+                    [],
+                )
+            )
+
+        else:
+            top_level = analysis.file_structure
+
+    else:
+
+        top_level = analysis.file_structure
+
+    print(
+        f"🔎 [README] STRUCTURE — "
+        f"repo_id={repo.id} — "
+        f"top_level={top_level}"
+    )
+
+    # ========================================================
     # 6. SAVE ANALYSIS
-    # ============================================================
+    # ========================================================
 
     try:
 
@@ -502,6 +570,13 @@ def generate_readme(repo_id: str):
 
         container.rollback()
 
+        print(
+            f"❌ [README] ERREUR — "
+            f"étape=SAUVEGARDE ANALYSE — "
+            f"repo_id={repo.id} — "
+            f"{exc}"
+        )
+
         current_app.logger.exception(
             "Erreur pendant la sauvegarde de l'analyse"
         )
@@ -512,30 +587,22 @@ def generate_readme(repo_id: str):
             )
         }), 500
 
-    # ============================================================
-    # 7. GENERATE README WITH OLLAMA
-    # ============================================================
+    # ========================================================
+    # 7. GENERATE README WITH AI
+    # ========================================================
 
     try:
-
-        print(
-            f"🤖 [README] DÉBUT OLLAMA — "
-            f"repo_id={repo.id}"
-        )
 
         result = (
             container.readme_generator_service
             .generate_initial_readme(
                 repository_id=repo.id,
-                project_name=repo.full_name.split("/")[-1],
+                project_name=(
+                    repo.full_name
+                    .split("/")[-1]
+                ),
                 analysis=analysis,
-                local_path=local_path,
             )
-        )
-
-        print(
-            f"✅ [README] OLLAMA TERMINÉ — "
-            f"repo_id={repo.id}"
         )
 
     except ReadmeGeneratorError as exc:
@@ -543,19 +610,29 @@ def generate_readme(repo_id: str):
         container.rollback()
 
         print(
-            f"❌ [README] ERREUR — OLLAMA — "
-            f"repo_id={repo.id} — {exc}"
+            f"❌ [README] ERREUR — "
+            f"étape=GÉNÉRATION IA — "
+            f"repo_id={repo.id} — "
+            f"{exc}"
         )
 
         return jsonify({
             "error": (
-                f"Échec de la génération du README: {exc}"
+                "Échec de la génération du README: "
+                f"{exc}"
             )
         }), 502
 
     except Exception as exc:
 
         container.rollback()
+
+        print(
+            f"❌ [README] ERREUR — "
+            f"étape=GÉNÉRATION IA — "
+            f"repo_id={repo.id} — "
+            f"{exc}"
+        )
 
         current_app.logger.exception(
             "Erreur inattendue pendant la génération du README"
@@ -568,128 +645,155 @@ def generate_readme(repo_id: str):
             )
         }), 502
 
-    # ============================================================
-    # 8. UPDATE DATABASE STATE
-    # ============================================================
+    # ========================================================
+    # 8. UPDATE REPOSITORY STATE
+    # ========================================================
+       # ========================================================
+    # 8. WRITE README.md + COMMIT + PUSH
+    # ========================================================
 
     try:
-
         readme_version = result["version"]
+        rendered_md = result["rendered_md"]
+
+        # ----------------------------------------------------
+        # 8.1 WRITE README.md INTO LOCAL CLONE
+        # ----------------------------------------------------
+
+        readme_path = os.path.join(
+            local_path,
+            "README.md",
+        )
+
+        print(
+            f"📝 [README] ÉCRITURE FICHIER — "
+            f"path={readme_path}"
+        )
+
+        with open(
+            readme_path,
+            "w",
+            encoding="utf-8",
+            newline="\n",
+        ) as f:
+            f.write(rendered_md)
+
+        print(
+            f"✅ [README] README.md ÉCRIT — "
+            f"repo_id={repo.id}"
+        )
+
+        # ----------------------------------------------------
+        # 8.2 DETECT TARGET BRANCH
+        # ----------------------------------------------------
+
+        target_branch = (
+            repo.tracked_branch
+            or repo.default_branch
+            or "main"
+        )
+
+        print(
+            f"🌿 [README] PUSH BRANCH — "
+            f"repo_id={repo.id} — "
+            f"branch={target_branch}"
+        )
+
+        # ----------------------------------------------------
+        # 8.3 COMMIT + PUSH
+        # ----------------------------------------------------
+
+        push_sha = (
+            container.git_service
+            .commit_and_push(
+                local_path=local_path,
+                file_paths=["README.md"],
+                commit_message="docs: generate initial README",
+                author_name="readme-bot",
+                author_email="readme-bot@yourapp.io",
+                branch=target_branch,
+                auth_token=auth_token,
+            )
+        )
+
+        print(
+            f"🎉 [README] PUSH TERMINÉ — "
+            f"repo_id={repo.id} — "
+            f"sha={push_sha}"
+        )
+
+        # ----------------------------------------------------
+        # 8.4 UPDATE README VERSION
+        # ----------------------------------------------------
 
         repo.current_readme_version_id = (
             readme_version.id
         )
 
-        container.session.flush()
+        repo.last_synced_commit_sha = push_sha
 
-        # IMPORTANT :
-        # Ici on ne prend PAS encore le SHA final,
-        # car le README vient d'être modifié localement
-        # et n'est pas encore pushé.
-
-    except Exception as exc:
-
-        container.rollback()
-
-        current_app.logger.exception(
-            "Erreur pendant la préparation de la persistence"
-        )
-
-        return jsonify({
-            "error": (
-                "Échec de la préparation du README: "
-                f"{exc}"
-            )
-        }), 500
-
-    # ============================================================
-    # 9. COMMIT + PUSH GITHUB
-    # ============================================================
-
-    try:
-
-        print(
-            f"🚀 [GITHUB] PUSH README — "
-            f"repo_id={repo.id}"
-        )
-
-        pushed_sha = container.git_service.commit_and_push(
-            local_path=local_path,
-            file_paths=["README.md"],
-            commit_message="docs: generate README",
-            author_name="README Sync Bot",
-            author_email="readme-bot@yourapp.io",
-            branch=repo.tracked_branch,
-            auth_token=auth_token,
-        )
-
-        print(
-            f"✅ [GITHUB] PUSH TERMINÉ — "
-            f"repo_id={repo.id} — "
-            f"commit={pushed_sha}"
-        )
+        container.commit()
 
     except GitServiceError as exc:
 
         container.rollback()
 
         print(
-            f"❌ [GITHUB] ERREUR PUSH — "
-            f"repo_id={repo.id} — {exc}"
+            f"❌ [README] ERREUR — "
+            f"étape=COMMIT/PUSH — "
+            f"repo_id={repo.id} — "
+            f"{exc}"
+        )
+
+        current_app.logger.exception(
+            "Erreur pendant le commit/push du README initial"
         )
 
         return jsonify({
             "error": (
-                "README généré mais impossible "
-                f"de le pousser vers GitHub: {exc}"
-            ),
-            "status": "generated_not_pushed",
+                "README généré mais impossible de "
+                f"le pousser vers GitHub: {exc}"
+            )
         }), 502
-
-    # ============================================================
-    # 10. UPDATE SYNC SHA
-    # ============================================================
-
-    try:
-
-        repo.last_synced_commit_sha = pushed_sha
-
-        container.commit()
 
     except Exception as exc:
 
         container.rollback()
 
+        print(
+            f"❌ [README] ERREUR — "
+            f"étape=PERSISTENCE/PUSH — "
+            f"repo_id={repo.id} — "
+            f"{exc}"
+        )
+
         current_app.logger.exception(
-            "Erreur pendant la sauvegarde finale"
+            "Erreur pendant la persistance/push du README"
         )
 
         return jsonify({
             "error": (
-                "README poussé sur GitHub mais "
-                f"erreur de sauvegarde DB: {exc}"
-            ),
-            "status": "pushed_db_error",
-            "commit_sha": pushed_sha,
+                "Erreur pendant la sauvegarde ou "
+                f"le push du README: {exc}"
+            )
         }), 500
 
-    # ============================================================
-    # 11. SUCCESS
-    # ============================================================
+    # ========================================================
+    # 9. SUCCESS
+    # ========================================================
 
     print(
-        f"🎉 [README] GÉNÉRATION + PUSH TERMINÉS — "
-        f"repo_id={repo.id} — "
-        f"commit={pushed_sha}"
+        f"🎉 [README] GÉNÉRATION INITIALE + PUSH TERMINÉS — "
+        f"repo_id={repo.id}"
     )
 
     return (
         jsonify({
             "status": "generated_and_pushed",
-            "commit_sha": pushed_sha,
             "readme": result["readme"].to_dict(),
             "version": readme_version.to_dict(),
             "repository": repo.to_dict(),
+            "commit_sha": push_sha,
         }),
         201,
     )

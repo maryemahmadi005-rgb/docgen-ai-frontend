@@ -6,6 +6,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.container import get_container
 from app.models.pending_update import PendingUpdateStatus
 from app.models.readme_version import TriggeredBy
+from app.services.sync_orchestrator import SyncOrchestratorError
 
 pending_updates_bp = Blueprint(
     "pending_updates", __name__, url_prefix="/api/repositories/<repo_id>/pending-updates"
@@ -55,8 +56,14 @@ def get_pending_update(repo_id: str, update_id: str):
 @jwt_required()
 def approve_pending_update(repo_id: str, update_id: str):
     """
-    Approuve une proposition -> crée une nouvelle readme_version (sync_manual_approved)
-    et met à jour l'état courant du README.
+    Approuve une proposition.
+
+    Avant ce fix, cet endpoint mettait seulement à jour generated_readmes/
+    readme_versions en DB — il n'appelait jamais git_service.commit_and_push().
+    "Approve" ne publiait donc jamais réellement sur GitHub. Il délègue
+    maintenant à SyncOrchestrator.apply_pending(), qui fait réellement :
+    vérification de fraîcheur (staleness) -> apply_patch -> commit+push
+    -> nouvelle ReadmeVersion -> statut approved.
     """
     user_id = get_jwt_identity()
     container = get_container()
@@ -71,26 +78,18 @@ def approve_pending_update(repo_id: str, update_id: str):
     if update.status != PendingUpdateStatus.pending:
         return jsonify({"error": f"Cette proposition est déjà '{update.status.value}'"}), 409
 
-    readme = container.readme_repository.find_by_repository(repo_id)
-    if not readme:
-        return jsonify({"error": "Aucun README généré pour ce repository"}), 404
+    try:
+        result = container.sync_orchestrator.apply_pending(update_id, user_id)
+        container.commit()
+    except SyncOrchestratorError as e:
+        container.rollback()
+        # Le message distingue explicitement le cas "stale" (conflit avec un
+        # nouveau commit distant) des autres échecs, pour que le frontend
+        # puisse proposer "Regenerate README" comme demandé.
+        return jsonify({"error": str(e)}), 409
 
-    version = container.readme_version_repository.create_next_version(
-        readme_id=readme.id,
-        sections_json=update.proposed_sections_json,
-        content_md=update.proposed_content_md,
-        triggered_by=TriggeredBy.sync_manual_approved,
-    )
-    container.readme_repository.update_content(
-        readme,
-        update.proposed_sections_json,
-        update.proposed_content_md,
-        current_version_id=version.id,
-    )
-    update = container.pending_update_repository.approve(update, resolved_by=user_id)
-    container.commit()
-
-    return jsonify(update.to_dict())
+    refreshed = container.pending_update_repository.get_by_id(update_id)
+    return jsonify({**refreshed.to_dict(), "sync_result": result})
 
 
 @pending_updates_bp.post("/<update_id>/reject")
@@ -112,7 +111,12 @@ def reject_pending_update(repo_id: str, update_id: str):
     if update.status != PendingUpdateStatus.pending:
         return jsonify({"error": f"Cette proposition est déjà '{update.status.value}'"}), 409
 
-    update = container.pending_update_repository.reject(update, resolved_by=user_id, reason=reason)
-    container.commit()
+    try:
+        container.sync_orchestrator.discard_pending(update_id, user_id, reason)
+        container.commit()
+    except SyncOrchestratorError as e:
+        container.rollback()
+        return jsonify({"error": str(e)}), 409
 
-    return jsonify(update.to_dict())
+    refreshed = container.pending_update_repository.get_by_id(update_id)
+    return jsonify(refreshed.to_dict())

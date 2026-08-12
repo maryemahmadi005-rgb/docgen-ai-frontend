@@ -1,43 +1,215 @@
-# {{ title }}
+# Project Documentation
 
-{{ description }}
+{{ project_goal if project_goal else "Objectif non détecté." }}
 
-{% if features %}
-## Features
+---
 
-{% for feature in features %}
-- {{ feature }}
+## Fonctionnement général
+
+{{ general_operation if general_operation else "Fonctionnement non détecté." }}
+
+---
+
+
+{% if architecture %}
+## Architecture
+
+{% if architecture is mapping %}
+{% for key, value in architecture.items() %}
+{% if value is sequence and value is not string %}
+**{{ key }}** : {% for item in value %}`{{ item }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{% else %}
+**{{ key }}** : {{ value }}
+{% endif %}
 {% endfor %}
+{% elif architecture is sequence and architecture is not string %}
+{% for item in architecture %}
+- {{ item }}
+{% endfor %}
+{% else %}
+{{ architecture }}
+{% endif %}
+
+---
 
 {% endif %}
-## Installation
-
-{{ installation }}
-
-## Usage
-
-{{ usage }}
+## Technologies utilisées
 
 {% if technologies %}
-## Technologies
+{% for technology in technologies %}
+- {{ technology }}
+{% endfor %}
+{% else %}
+Aucune technologie détectée.
+{% endif %}
 
-{% for tech in technologies %}
-- {{ tech }}
+---
+
+## Modules principaux
+
+{% if main_modules %}
+{% for module in main_modules %}
+{% if module is mapping %}
+{% if module.name %}### {{ module.name }}{% else %}### {{ module.path if module.path else "Module" }}{% endif %}
+
+{% if module.path %}
+**Fichier :** `{{ module.path }}`
+{% endif %}
+
+{% if module.role %}
+**Rôle :** {{ module.role }}
+{% endif %}
+
+{% if module.classes %}
+**Classes principales :** {% for class_name in module.classes %}`{{ class_name }}`{% if not loop.last %}, {% endif %}{% endfor %}
+
+{% endif %}
+{% if module.functions %}
+**Fonctions importantes :** {% for function_name in module.functions %}`{{ function_name }}`{% if not loop.last %}, {% endif %}{% endfor %}
+
+{% endif %}
+{% if module.dependencies %}
+**Dépendances internes :** {% for dependency in module.dependencies %}`{{ dependency }}`{% if not loop.last %}, {% endif %}{% endfor %}
+
+{% endif %}
+{% if module.routes %}
+**Routes exposées :** {% for route in module.routes %}`{{ route }}`{% if not loop.last %}, {% endif %}{% endfor %}
+
+{% endif %}
+{% if module.blueprint %}
+**Blueprint :** `{{ module.blueprint }}`
+
+{% endif %}
+{% else %}
+- {{ module }}
+{% endif %}
+{% endfor %}
+{% else %}
+Aucun module principal détecté.
+{% endif %}
+
+---
+
+## Flux de données
+
+{{ data_flow if data_flow else "Flux non détecté." }}
+
+---
+
+## Points d'entrée
+
+{% if entry_points %}
+{% for entry_point in entry_points %}
+- `{{ entry_point }}`
+{% endfor %}
+{% else %}
+Aucun point d'entrée détecté.
+{% endif %}
+
+---
+
+## Endpoints API
+
+{% if api_endpoints %}
+| Méthode(s) | Endpoint | Fichier |
+|---|---|---|
+{% for endpoint in api_endpoints %}
+{% if endpoint is mapping %}
+| {{ endpoint.methods | join(", ") if endpoint.methods else "GET" }} | `{{ endpoint.endpoint }}` | `{{ endpoint.file }}` |
+{% else %}
+| - | {{ endpoint }} | - |
+{% endif %}
+{% endfor %}
+{% else %}
+Aucun endpoint API détecté.
+{% endif %}
+
+---
+
+## Dépendances importantes
+
+{% if important_dependencies %}
+{% if important_dependencies is mapping %}
+{% for manager, deps in important_dependencies.items() %}
+**{{ manager }}**
+{% for dep in deps %}
+- {{ dep }}
 {% endfor %}
 
+{% endfor %}
+{% elif important_dependencies is sequence and important_dependencies is not string %}
+{% for dep in important_dependencies %}
+- {{ dep }}
+{% endfor %}
+{% else %}
+{{ important_dependencies }}
 {% endif %}
-{% if project_structure %}
-## Project Structure
+{% else %}
+Aucune dépendance importante détectée.
+{% endif %}
 
-{{ project_structure }}
+---
+
+{% if installation %}
+## Installation
+
+{% for section_title, items in installation.items() %}
+{% if section_title == "prerequisites" %}
+**Prérequis**
+{% elif section_title == "backend_setup" %}
+**Installation backend**
+{% elif section_title == "frontend_setup" %}
+**Installation frontend**
+{% elif section_title == "configuration" %}
+**Configuration**
+{% elif section_title == "external_services" %}
+**Services externes**
+{% elif section_title == "start_commands" %}
+**Commandes de démarrage**
+{% else %}
+**{{ section_title }}**
+{% endif %}
+
+{% for item in items %}
+- {{ item }}
+{% endfor %}
+
+{% endfor %}
+
+---
 
 {% endif %}
-{% if configuration %}
-## Configuration
+{% if usage %}
+## Usage
 
-{{ configuration }}
+{% for section_title, items in usage.items() %}
+{% if section_title == "startup" %}
+**Démarrage de l'application**
+{% elif section_title == "main_api" %}
+**API principale**
+{% elif section_title == "example" %}
+**Exemple d'utilisation**
+{% elif section_title == "frontend_backend_flow" %}
+**Flux frontend/backend**
+{% else %}
+**{{ section_title }}**
+{% endif %}
+
+{% for item in items %}
+- {{ item }}
+{% endfor %}
+
+{% endfor %}
+
+---
 
 {% endif %}
-## License
+## Recommandations
 
-{{ license }}
+{% if recommendations %}
+{% for recommendation in recommendations %}
+- {{ recommendation }}
+{% endfor %}
+{% else %}
+Aucune recommandation spécifique détectée.
+{% endif %}

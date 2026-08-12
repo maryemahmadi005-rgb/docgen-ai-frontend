@@ -1,12 +1,12 @@
 # Project Documentation
 
-Analyser et générer des documents de synthèse pour les projets Open Source
+Gérer les données de code et fournir des recommandations pour améliorer la qualité du code
 
 ---
 
 ## Fonctionnement général
 
-Le flux réel fonctionne comme suit : une requête HTTP est envoyée à l'endpoint API /api/auth/register, qui crée un token d'authentification. Ce token est ensuite utilisé pour appeler l'endpoint API /api/repositories/<repo_id>/readme, qui récupère les informations du projet et génère un document de synthèse.
+Le flux réel fonctionne comme suit : une requête HTTP est envoyée à l'endpoint API, qui envoie ensuite la requête vers le service de base de données/LLM. Le résultat est ensuite renvoyé à l'endpoint API, qui le traite et le retourne au frontend. Les interactions entre les composants sont observées dans les preuves.
 
 ---
 
@@ -25,27 +25,29 @@ Le flux réel fonctionne comme suit : une requête HTTP est envoyée à l'endpoi
 ### backend/app/__init__.py
 **Fichier :** `backend/app/__init__.py`
 
-**Rôle :** Crée l'application Flask et configure les extensions
+**Rôle :** Création de l'application Flask et configuration des extensions
 
-**Classes principales :** `Flask`, `db`, `migrate`, `jwt`, `cors`
-**Fonctions importantes :** `create_app`, `get_config`, `register_blueprints`
+**Classes principales :** `Flask`, `get_config`, `db`, `migrate`, `jwt`, `cors`
+**Fonctions importantes :** `create_app`, `health`
 **Dépendances internes :** `app.config`, `app.extensions`
 ### backend/app/api/auth.py
 **Fichier :** `backend/app/api/auth.py`
 
-**Rôle :** Gère les appels d'authentification et la gestion des tokens
+**Rôle :** Gestion des utilisateurs et authentification
 
-**Classes principales :** `Blueprint`, `requests`, `URLSafeTimedSerializer`
-**Fonctions importantes :** `_oauth_serializer`, `_create_github_state`, `register_blueprint`
-**Dépendances internes :** `app.config`, `app.container`, `flask_jwt_extended`
+**Classes principales :** `auth_bp`, `_oauth_serializer`
+**Fonctions importantes :** `register_blueprints`, `_create_github_state`
+**Dépendances internes :** `app.container`, `app.utils.encryption`
 **Routes exposées :** `{'endpoint': '/api/auth/register', 'method': 'POST'}`, `{'endpoint': '/api/auth/login', 'method': 'POST'}`
-### readme-sync-frontend/src/api/client.js
-**Fichier :** `readme-sync-frontend/src/api/client.js`
+### backend/app/api/pending_updates.py
+**Fichier :** `backend/app/api/pending_updates.py`
 
-**Rôle :** Appelle l'endpoint API /api/auth/refresh pour obtenir un nouveau token d'authentification
+**Rôle :** Gestion des mises à jour pendantes et validation du JSON
 
-**Fonctions importantes :** `POST`, `API_URL`
-**Routes exposées :** `{'endpoint': '${API_URL}/auth/refresh', 'method': 'POST'}`
+**Classes principales :** `pending_updates_bp`, `_oauth_serializer`
+**Fonctions importantes :** `register_blueprints`, `get_pending_updates`
+**Dépendances internes :** `app.container`, `app.utils.encryption`
+**Routes exposées :** `{'endpoint': '/api/repositories/<repo_id>/pending-updates', 'method': 'GET'}`, `{'endpoint': '/api/repositories/<repo_id>/pending-updates/<update_id>', 'method': 'GET'}`
 
 ---
 
@@ -104,5 +106,4 @@ Aucune dépendance importante détectée.
 
 ## Recommandations
 
-- {'type': "absence de gestion d'erreur visible", 'description': "L'endpoint API /api/auth/register ne gère pas les erreurs de validation des données"}
-- {'type': 'dépendance non utilisée', 'description': "La dépendance 'requests' n'est pas utilisée dans le code"}
+Aucune recommandation spécifique détectée.

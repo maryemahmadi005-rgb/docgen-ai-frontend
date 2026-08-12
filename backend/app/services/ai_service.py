@@ -8,6 +8,7 @@ une documentation technique structurée.
 bvcxdfgvbh cdgc vgvbn,,,,,,,,,,,,,,,,,,,
 
 IMPORTANT :
+nana nanan ananananananana nqjdnzjdnkdncejfvnesvsjefvvvvvvvvvvvvvvdfvsqsdc
 - aucune information ne doit être inventée ;
 - les technologies détectées sont la seule source autorisée ;
 - les chemins de fichiers doivent provenir de l'analyse ;

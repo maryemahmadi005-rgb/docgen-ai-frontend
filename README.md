@@ -159,3 +159,15 @@ jbhjbdchbdc,nndc
 vgvhgvgh
 jn,,vb,nbv cfvgbhn
 ,nbjhb vghjnbvghbhjn
+
+## General Operation
+
+This application analyzes the repository structure.
+
+It detects the technologies used by the project.
+
+It identifies important files and directories.
+
+It generates technical documentation automatically.
+
+The documentation can be synchronized when the repository changes.

@@ -19,7 +19,8 @@ webhook -> pending_update, jamais exécuté avec succès jusqu'ici) :
   mémoire (pas de DB id) ; PendingUpdate.detected_change_id est une FK
   réelle vers detected_changes.id. Ce commit_detector persiste maintenant
   le dataclass avant de le transmettre à SyncOrchestrator, pour que l'id
-  utilisé plus loin soit un vrai id de ligne DB.
+  utilisé plus loin soit un vrai id de ligne DB
+  j dnddjdjc nnnnnnnnnnnn mancbhgty chh cloodkcns ,cmkban ,ksmeryamd, nbcs.
 """
 
 import logging

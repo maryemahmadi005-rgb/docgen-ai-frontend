@@ -1,12 +1,14 @@
 """
-AI Service — client unique pour Ollama.
+AI Service — client unique pour Ollama.dzdzdddddssdcccccccccccccccccdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
 
 Responsable uniquement des interactions avec le LLM.
 
 Le LLM reçoit les preuves produites par AnalyzerService et génère
 une documentation technique structurée.
+bvcxdfgvbh cdgc vgvbn,,,,,,,,,,,,,,,,,,,
 
 IMPORTANT :
+nana nanan ananananananana nqjdnzjdnkdncejfvnesvsjefvvvvvvvvvvvvvvdfvsqsdc
 - aucune information ne doit être inventée ;
 - les technologies détectées sont la seule source autorisée ;
 - les chemins de fichiers doivent provenir de l'analyse ;
@@ -17,6 +19,7 @@ IMPORTANT :
   (file_structure, important_files, install_scripts, ...) ne doit
   fuiter dans la sortie : ces données restent des preuves internes
   utilisées uniquement pour construire le prompt.
+  fvsbfr gngnnf nndd fnfnrfr,jrnrne,ejejeneej
 
 NOTE CONTEXTE OLLAMA :
 Le nombre de preuves envoyées (fichiers de code, structure, endpoints...)
@@ -75,6 +78,7 @@ class AIService:
     # ============================================================
     DEFAULT_MAX_CODE_EVIDENCE_FILES = 20
     DEFAULT_MAX_CODE_EVIDENCE_CHARS_PER_FILE = 3000
+    # Test automatic synchronization
 
     CONFIG_FILE_BASENAMES = (
         "package.json",

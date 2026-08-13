@@ -51,7 +51,12 @@ export default function PendingUpdateDetailPage() {
     try {
       const updated = await pendingUpdatesApi.approve(repo.id, updateId)
       setUpdate(updated)
-      toast.success('Update approved and applied to the README.')
+      const versionNumber = updated?.sync_result?.version_number
+      toast.success(
+        versionNumber
+          ? `✅ README updated — version v${versionNumber} created.`
+          : 'Update approved and applied to the README.'
+      )
       setApproveOpen(false)
     } catch (err) {
       toast.error(getErrorMessage(err, 'Unable to approve this update.'))

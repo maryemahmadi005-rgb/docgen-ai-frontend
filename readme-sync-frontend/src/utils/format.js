@@ -71,3 +71,35 @@ export const pendingStatusVariants = {
   rejected: 'danger',
   stale: 'neutral',
 }
+
+/** Time-of-day greeting — purely presentational, computed from the local clock. */
+export function getGreeting() {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 18) return 'Good afternoon'
+  return 'Good evening'
+}
+
+/** Display name derived from real user fields only (no hardcoded name). */
+export function getDisplayName(user) {
+  if (!user) return ''
+  if (user.github_username) return user.github_username
+  if (user.email) return user.email.split('@')[0]
+  return ''
+}
+
+/**
+ * Derives a repository's sync status label from real backend fields —
+ * never invented client-side state. Backed by the same notification state
+ * (pending_prompt / latest_version) exposed by /api/notifications/summary.
+ */
+export function deriveRepoStatus(repoNotifState) {
+  if (!repoNotifState) return { key: 'unknown', label: 'No data yet', variant: 'neutral' }
+  if (repoNotifState.pending_prompt) {
+    return { key: 'review_required', label: 'Review required', variant: 'warning' }
+  }
+  if (repoNotifState.latest_version) {
+    return { key: 'synced', label: 'Synced', variant: 'success' }
+  }
+  return { key: 'no_readme', label: 'No README yet', variant: 'neutral' }
+}

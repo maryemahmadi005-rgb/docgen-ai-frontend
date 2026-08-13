@@ -28,8 +28,4 @@ export const repositoriesApi = {
 
   getLatestAnalysis: (repoId) =>
     client.get(`/repositories/${repoId}/analyses/latest`).then((r) => r.data),
-
-  /** Manual trigger — initial README generation (clone + analyze + Ollama). */
-  generate: (repoId) =>
-    client.post(`/repositories/${repoId}/generate`).then((r) => r.data),
 }

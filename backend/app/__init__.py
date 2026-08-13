@@ -14,6 +14,8 @@ def create_app(env_name: str | None = None) -> Flask:
     jwt.init_app(app)
 
     # --- CORS ---
+    # Test automatic documentation synchronization
+    # Test automatic documentation synchronization
     cors.init_app(
         app,
         resources={

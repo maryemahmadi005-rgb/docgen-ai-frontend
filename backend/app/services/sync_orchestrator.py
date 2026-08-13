@@ -104,8 +104,12 @@ class SyncOrchestrator:
         print(f"[README SYNC] Patch generated: true")
 
         if repo.sync_mode.value == "automatic":
-            self._finalize_and_push(repo, readme, patch, triggered_by=TriggeredBy.sync_auto)
-            return {"action": "auto_synced", "sections": patch.affected_sections}
+            version = self._finalize_and_push(repo, readme, patch, triggered_by=TriggeredBy.sync_auto)
+            return {
+                "action": "auto_synced",
+                "sections": patch.affected_sections,
+                "version_number": version.version_number,
+            }
 
         # mode manuel : on crée une proposition et on s'arrête — AUCUN commit/push ici.
         pending_update = self.pending_update_service.create(
@@ -154,11 +158,17 @@ class SyncOrchestrator:
             rendered_md=pending_update.proposed_content_md or "",
         )
 
-        self._finalize_and_push(repo, readme, patch, triggered_by=TriggeredBy.sync_manual_approved)
+        version = self._finalize_and_push(
+            repo, readme, patch, triggered_by=TriggeredBy.sync_manual_approved
+        )
 
         self.pending_update_service.mark_approved(pending_update_id, user_id)
 
-        return {"action": "approved_and_synced", "sections": patch.affected_sections}
+        return {
+            "action": "approved_and_synced",
+            "sections": patch.affected_sections,
+            "version_number": version.version_number,
+        }
 
     # ------------------------------------------------------------------
     # Après Reject — appelé par l'API pending_updates
@@ -176,7 +186,7 @@ class SyncOrchestrator:
     # ------------------------------------------------------------------
     # Étape commune factorisée — apply_patch + commit_and_push + version
     # ------------------------------------------------------------------
-    def _finalize_and_push(self, repo, readme, patch: Patch, triggered_by: TriggeredBy) -> None:
+    def _finalize_and_push(self, repo, readme, patch: Patch, triggered_by: TriggeredBy):
         self.readme_updater.apply_patch(patch)
 
         try:
@@ -213,3 +223,5 @@ class SyncOrchestrator:
         )
 
         print(f"[README SYNC] Publié — repo={repo.id} commit={commit_sha} version={version.version_number}")
+
+        return version

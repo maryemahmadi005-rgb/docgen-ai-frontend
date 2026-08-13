@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Menu, ChevronDown, LogOut, User, Settings } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import NotificationBell from './NotificationBell'
 
 export default function Topbar({ onOpenMobileMenu, title }) {
   const { user, logout } = useAuth()
@@ -29,7 +30,9 @@ export default function Topbar({ onOpenMobileMenu, title }) {
 
       <div style={{ flex: 1 }} />
 
-      <div ref={menuRef} style={{ position: 'relative' }}>
+      <NotificationBell />
+
+      <div ref={menuRef} style={{ position: 'relative', marginLeft: 6 }}>
         <button style={styles.userBtn} onClick={() => setMenuOpen((o) => !o)}>
           <div style={styles.avatar}>{initial}</div>
           <span style={styles.userEmail}>{user?.email}</span>

@@ -8,9 +8,12 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import PageHeader from '../../components/ui/PageHeader'
 import { getErrorMessage } from '../../api/client'
-import { timeAgo, shortSha, toGithubUrl } from '../../utils/format'
+import { timeAgo, shortSha, toGithubUrl, deriveRepoStatus } from '../../utils/format'
+import { useNotifications } from '../../context/NotificationsContext'
 
 export default function RepositoriesListPage() {
+  const { repoStates } = useNotifications()
+  const statesByRepo = Object.fromEntries(repoStates.map((s) => [s.repository_id, s]))
   const [repos, setRepos] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -140,7 +143,9 @@ export default function RepositoriesListPage() {
                   <Badge variant={repo.sync_mode === 'automatic' ? 'success' : 'neutral'} dot>
                     {repo.sync_mode === 'automatic' ? 'Automatic' : 'Manual'}
                   </Badge>
-                  <Badge variant="neutral">{repo.sync_method}</Badge>
+                  <Badge variant={deriveRepoStatus(statesByRepo[repo.id]).variant}>
+                    {deriveRepoStatus(statesByRepo[repo.id]).label}
+                  </Badge>
                 </div>
                 <div style={styles.repoFooter}>
                   {repo.last_synced_commit_sha ? (

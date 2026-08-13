@@ -1,14 +1,29 @@
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, GitBranch, GitPullRequestArrow, Settings, X, GitMerge } from 'lucide-react'
+import { useNotifications } from '../../context/NotificationsContext'
 
-const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/repositories', label: 'Repositories', icon: GitBranch },
-  { to: '/pending-updates', label: 'Pending Updates', icon: GitPullRequestArrow },
-  { to: '/settings', label: 'Account', icon: Settings },
+const navSections = [
+  {
+    label: 'Overview',
+    items: [{ to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }],
+  },
+  {
+    label: 'Workspace',
+    items: [
+      { to: '/repositories', label: 'Repositories', icon: GitBranch, countKey: 'totalRepositories' },
+      { to: '/pending-updates', label: 'Pending Updates', icon: GitPullRequestArrow, countKey: 'pendingReviewCount' },
+    ],
+  },
+  {
+    label: 'Settings',
+    items: [{ to: '/settings', label: 'Account', icon: Settings }],
+  },
 ]
 
 export default function Sidebar({ mobileOpen, onCloseMobile }) {
+  const { totalRepositories, pendingReviewCount } = useNotifications()
+  const counts = { totalRepositories, pendingReviewCount }
+
   return (
     <>
       {mobileOpen && <div className="rs-mobile-overlay" style={{ display: 'none' }} onClick={onCloseMobile} />}
@@ -28,19 +43,37 @@ export default function Sidebar({ mobileOpen, onCloseMobile }) {
         </div>
 
         <nav style={styles.nav}>
-          {navItems.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              onClick={onCloseMobile}
-              style={({ isActive }) => ({
-                ...styles.navItem,
-                ...(isActive ? styles.navItemActive : {}),
+          {navSections.map((section) => (
+            <div key={section.label} style={styles.section}>
+              <div style={styles.sectionLabel}>{section.label}</div>
+              {section.items.map(({ to, label, icon: Icon, countKey }) => {
+                const count = countKey ? counts[countKey] : null
+                return (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    onClick={onCloseMobile}
+                    style={({ isActive }) => ({
+                      ...styles.navItem,
+                      ...(isActive ? styles.navItemActive : {}),
+                    })}
+                  >
+                    <Icon size={17} strokeWidth={2} />
+                    <span style={{ flex: 1 }}>{label}</span>
+                    {count !== null && count !== undefined && (
+                      <span
+                        style={{
+                          ...styles.navCount,
+                          ...(countKey === 'pendingReviewCount' && count > 0 ? styles.navCountWarn : {}),
+                        }}
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </NavLink>
+                )
               })}
-            >
-              <Icon size={17} strokeWidth={2} />
-              <span>{label}</span>
-            </NavLink>
+            </div>
           ))}
         </nav>
 
@@ -102,9 +135,18 @@ const styles = {
   nav: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 2,
+    gap: 16,
     padding: 12,
     flex: 1,
+  },
+  section: { display: 'flex', flexDirection: 'column', gap: 2 },
+  sectionLabel: {
+    fontSize: 10.5,
+    fontWeight: 700,
+    letterSpacing: '0.06em',
+    color: 'var(--text-tertiary)',
+    textTransform: 'uppercase',
+    padding: '4px 12px 6px 12px',
   },
   navItem: {
     display: 'flex',
@@ -121,6 +163,20 @@ const styles = {
     background: 'var(--accent-bg)',
     color: 'var(--accent)',
     fontWeight: 600,
+  },
+  navCount: {
+    fontSize: 11.5,
+    fontWeight: 700,
+    color: 'var(--text-tertiary)',
+    background: 'var(--bg-surface-raised)',
+    borderRadius: 'var(--radius-full)',
+    padding: '1px 7px',
+    minWidth: 18,
+    textAlign: 'center',
+  },
+  navCountWarn: {
+    color: 'var(--warning)',
+    background: 'var(--warning-bg)',
   },
   footer: {
     padding: '14px 20px',

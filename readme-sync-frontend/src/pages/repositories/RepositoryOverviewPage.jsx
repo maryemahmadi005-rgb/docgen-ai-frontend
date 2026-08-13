@@ -1,35 +1,11 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { FileText, GitCommit, GitPullRequestArrow, History, Sparkles } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { FileText, GitCommit, GitPullRequestArrow, History } from 'lucide-react'
 import { useRepositoryContext } from './RepositoryLayout'
-import { repositoriesApi } from '../../api/repositories'
-import { getErrorMessage } from '../../api/client'
-import { useToast } from '../../context/ToastContext'
 import { Card } from '../../components/ui/Primitives'
-import Button from '../../components/ui/Button'
 import { formatDateTime, shortSha } from '../../utils/format'
 
 export default function RepositoryOverviewPage() {
-  const { repo, reloadRepo } = useRepositoryContext()
-  const [generating, setGenerating] = useState(false)
-  const [generateError, setGenerateError] = useState(null)
-  const toast = useToast()
-  const navigate = useNavigate()
-
-  async function handleGenerate() {
-    setGenerating(true)
-    setGenerateError(null)
-    try {
-      await repositoriesApi.generate(repo.id)
-      await reloadRepo()
-      toast.success('README generated.')
-      navigate(`/repositories/${repo.id}/readme`)
-    } catch (err) {
-      setGenerateError(getErrorMessage(err, 'Unable to generate the README.'))
-    } finally {
-      setGenerating(false)
-    }
-  }
+  const { repo } = useRepositoryContext()
 
   const cards = [
     {
@@ -58,13 +34,6 @@ export default function RepositoryOverviewPage() {
 
   return (
     <div>
-      <div style={styles.actionsRow}>
-        <Button icon={Sparkles} onClick={handleGenerate} loading={generating}>
-          {generating ? 'Generating…' : 'Generate README'}
-        </Button>
-        {generateError && <span style={styles.generateError}>{generateError}</span>}
-      </div>
-
       <div style={styles.grid}>
         {cards.map(({ icon: Icon, label, value, mono }) => (
           <Card key={label}>
@@ -102,8 +71,6 @@ export default function RepositoryOverviewPage() {
 }
 
 const styles = {
-  actionsRow: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' },
-  generateError: { fontSize: 12.5, color: 'var(--danger)' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 28 },
   cardIcon: { width: 30, height: 30, borderRadius: 8, background: 'var(--bg-surface-raised)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
   cardValue: { fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', wordBreak: 'break-word' },

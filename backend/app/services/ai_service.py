@@ -411,52 +411,144 @@ class AIService:
                 0,
             )
 
-        try:
-            result = json.loads(raw)
+        # Chaque stratégie est essayée sur le texte brut D'ABORD (rapide,
+        # ne modifie rien), puis sur la version assainie localement
+        # (AIService._sanitize_json_text) si le texte brut échoue. Cette
+        # passe de nettoyage déterministe est gratuite (aucun appel
+        # Ollama) et corrige la très grande majorité des cas réels vus en
+        # production avec les petits modèles locaux : retours à la ligne
+        # bruts non échappés à l'intérieur d'une chaîne, virgules
+        # traînantes, guillemets typographiques, littéraux Python
+        # (True/False/None) — des erreurs de SYNTAXE uniquement, jamais
+        # de contenu réécrit ou inventé.
+        candidates = [raw]
+        sanitized = AIService._sanitize_json_text(raw)
+        if sanitized != raw:
+            candidates.append(sanitized)
 
-            if isinstance(result, dict):
-                return result
-
-        except json.JSONDecodeError:
-            pass
-
-        matches = re.findall(
-            r"```(?:json)?\s*(.*?)\s*```",
-            raw,
-            flags=re.IGNORECASE | re.DOTALL,
-        )
-
-        for candidate in matches:
+        # --- 1) JSON direct (objet entier, éventuellement déjà propre) ---
+        for candidate in candidates:
             try:
                 result = json.loads(candidate)
-
                 if isinstance(result, dict):
                     return result
-
             except json.JSONDecodeError:
                 continue
 
+        # --- 2) Bloc(s) ```json ... ``` / ``` ... ``` ---
+        for candidate in candidates:
+            matches = re.findall(
+                r"```(?:json)?\s*(.*?)\s*```",
+                candidate,
+                flags=re.IGNORECASE | re.DOTALL,
+            )
+            for block in matches:
+                for block_variant in (block, AIService._sanitize_json_text(block)):
+                    try:
+                        result = json.loads(block_variant)
+                        if isinstance(result, dict):
+                            return result
+                    except json.JSONDecodeError:
+                        continue
+
+        # --- 3) Texte avant/après un objet JSON — on scanne chaque '{' ---
         decoder = json.JSONDecoder()
-
-        for match in re.finditer(r"\{", raw):
-
-            try:
-                result, _ = decoder.raw_decode(
-                    raw,
-                    match.start(),
-                )
-
-                if isinstance(result, dict):
-                    return result
-
-            except json.JSONDecodeError:
-                continue
+        for candidate in candidates:
+            for match in re.finditer(r"\{", candidate):
+                try:
+                    result, _ = decoder.raw_decode(
+                        candidate,
+                        match.start(),
+                    )
+                    if isinstance(result, dict):
+                        return result
+                except json.JSONDecodeError:
+                    continue
 
         raise json.JSONDecodeError(
             "Impossible de trouver un objet JSON valide.",
             raw,
             0,
         )
+
+    @staticmethod
+    def _sanitize_json_text(text: str) -> str:
+        """
+        Nettoyage déterministe et purement SYNTAXIQUE d'une réponse censée
+        être du JSON — ne réécrit, ne supprime ni n'invente jamais de
+        contenu sémantique, uniquement des artefacts de formatage
+        typiques des petits modèles locaux (Ollama) :
+
+        - guillemets typographiques (" " ' ') -> guillemets ASCII
+        - littéraux Python True/False/None -> true/false/null
+        - virgule traînante avant '}' ou ']'
+        - retours à la ligne / tabulations / autres caractères de
+          contrôle BRUTS à l'intérieur d'une chaîne JSON -> échappés
+          (\\n, \\t) ou supprimés s'ils n'ont pas d'équivalent JSON —
+          c'est la cause la plus fréquente de "Invalid control
+          character" quand le modèle écrit du texte multi-lignes sans
+          échapper les sauts de ligne.
+        """
+        if not text:
+            return text
+
+        cleaned = (
+            text.replace("\u201c", '"')
+            .replace("\u201d", '"')
+            .replace("\u2018", "'")
+            .replace("\u2019", "'")
+        )
+
+        cleaned = re.sub(r"\bTrue\b", "true", cleaned)
+        cleaned = re.sub(r"\bFalse\b", "false", cleaned)
+        cleaned = re.sub(r"\bNone\b", "null", cleaned)
+
+        cleaned = re.sub(r",(\s*[}\]])", r"\1", cleaned)
+
+        cleaned = AIService._escape_raw_control_chars_in_strings(cleaned)
+
+        return cleaned
+
+    @staticmethod
+    def _escape_raw_control_chars_in_strings(text: str) -> str:
+        """
+        Parcourt `text` caractère par caractère et échappe les retours à
+        la ligne/tabulations bruts rencontrés À L'INTÉRIEUR d'une chaîne
+        JSON (entre guillemets non échappés). En dehors des chaînes, le
+        texte n'est pas modifié — la structure JSON (indentation, sauts
+        de ligne entre les clés) reste intacte.
+        """
+        out: list[str] = []
+        in_string = False
+        escape = False
+
+        for ch in text:
+            if in_string:
+                if escape:
+                    out.append(ch)
+                    escape = False
+                elif ch == "\\":
+                    out.append(ch)
+                    escape = True
+                elif ch == '"':
+                    out.append(ch)
+                    in_string = False
+                elif ch == "\n":
+                    out.append("\\n")
+                elif ch == "\r":
+                    continue  # normalisé via le \\n du \\n qui suit (CRLF)
+                elif ch == "\t":
+                    out.append("\\t")
+                elif ord(ch) < 0x20:
+                    continue  # autre caractère de contrôle sans échappement JSON standard — supprimé
+                else:
+                    out.append(ch)
+            else:
+                if ch == '"':
+                    in_string = True
+                out.append(ch)
+
+        return "".join(out)
 
     def _call_json(
         self,
@@ -466,14 +558,25 @@ class AIService:
 
         instruction = """
 
-IMPORTANT :
+IMPORTANT — FORMAT DE RÉPONSE STRICT :
 
-Réponds UNIQUEMENT avec un objet JSON valide.
+Réponds UNIQUEMENT avec un objet JSON valide, respectant EXACTEMENT
+le schéma demandé ci-dessus (mêmes clés, aucune clé en plus, aucune
+clé en moins).
 
-Aucun texte avant.
-Aucun texte après.
-Aucune balise Markdown.
-Aucun ```json.
+Interdictions absolues :
+- Aucun texte avant l'objet JSON.
+- Aucun texte après l'objet JSON.
+- Aucune balise Markdown, aucun ```json, aucun ```.
+- Aucune explication, aucun commentaire, aucune excuse.
+- N'invente aucune information absente des preuves fournies.
+
+Règles de syntaxe JSON strictes :
+- Guillemets doubles (") uniquement — jamais de guillemets simples.
+- Aucune virgule après le dernier élément d'une liste ou d'un objet.
+- Si une valeur texte contient un retour à la ligne, échappe-le en
+  \\n : n'insère jamais un vrai saut de ligne brut à l'intérieur
+  d'une chaîne JSON.
 """
 
         raw = self._call(
@@ -493,22 +596,22 @@ Aucun ```json.
             )
 
             repair_prompt = f"""
-La réponse suivante devait être un objet JSON valide.
+La réponse suivante devait être un objet JSON valide mais ne l'est pas.
 
-Erreur :
+Erreur de parsing :
 {first_error.msg}
 
-Réponse :
+Réponse à corriger :
 
 {raw}
 
-Corrige uniquement la syntaxe JSON.
+Corrige UNIQUEMENT la syntaxe JSON (guillemets doubles, pas de
+virgule traînante, pas de saut de ligne brut à l'intérieur d'une
+chaîne — échappe-le en \\n, pas de texte hors de l'objet JSON).
 
-Ne change aucune information.
-Ne supprime aucune information.
-N'ajoute aucune information.
+Ne change, n'ajoute ni ne supprime aucune information de contenu.
 
-Retourne uniquement le JSON corrigé.
+Retourne uniquement le JSON corrigé, rien d'autre.
 """
 
             repaired = self._call(
@@ -1080,12 +1183,14 @@ Règles strictes :
 - Si les preuves fournies sont insuffisantes pour justifier un
   changement, retourne old_content sans modification.
 
-{"Cette section est une LISTE d'éléments courts (pas de phrases)." if is_list_section else "Cette section est un texte libre en Markdown."}
+{"Cette section est une LISTE d'éléments courts (pas de phrases)." if is_list_section else "Cette section est un texte libre pouvant contenir du Markdown (listes, gras, etc.)."}
 
-Retourne uniquement un objet JSON valide avec exactement cette clé :
-{{"content": {"[]" if is_list_section else '""'}}}
-
-La valeur de "content" doit être {"une liste de chaînes courtes" if is_list_section else "une chaîne de texte"}, jamais autre chose.
+Format de réponse strict :
+- Réponds UNIQUEMENT avec un objet JSON valide, exactement cette clé :
+  {{"content": {"[]" if is_list_section else '""'}}}
+- Aucun texte avant ou après l'objet JSON. Aucune balise ```json.
+- La valeur de "content" doit être {"une liste de chaînes courtes" if is_list_section else "une seule chaîne de texte"}, jamais un autre type.
+{"" if is_list_section else '- Si le contenu tient sur plusieurs lignes ou paragraphes, échappe chaque retour à la ligne en \\n à l\'intérieur de la chaîne JSON — n\'insère jamais un vrai saut de ligne brut dans la valeur.'}
 """
 
         prompt = f"""

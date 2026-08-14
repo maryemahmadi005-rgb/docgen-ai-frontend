@@ -278,6 +278,18 @@ def _is_test_file(relative_path: str, filename: str) -> bool:
     test_dir_markers = ("/test/", "/tests/", "/__tests__/", "/spec/")
 
     return any(marker in f"/{path_lower}/" for marker in test_dir_markers)
+def _extract_module_relations(file_summaries):
+
+    relations = []
+
+    # نكوّن قائمة modules Python فقط
+    module_paths = {
+        p.replace("\\", ".")
+         .replace("/", ".")
+         .replace(".py", "")
+        for p in file_summaries.keys()
+        if p.endswith(".py")
+    }
 
 
 def _is_likely_app_factory_init(relative_path: str, filename: str) -> bool:

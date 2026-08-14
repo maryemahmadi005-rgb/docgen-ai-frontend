@@ -133,3 +133,12 @@ Aucune dépendance importante détectée.
 ## Recommandations
 
 - {'type': "erreur de gestion d'erreur", 'description': "L'application n'a pas de mécanisme de gestion d'erreurs robuste."}
+- 
+## Usage
+
+**Démarrage de l'application**
+
+- docker-compose up -d
+- python backend/app/__init__.py
+
+- 

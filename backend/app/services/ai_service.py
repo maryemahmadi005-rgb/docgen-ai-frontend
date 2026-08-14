@@ -9,7 +9,7 @@ bvcxdfgvbh cdgc vgvbn,,,,,,,,,,,,,,,,,,,
 
 IMPORTANT :
 nana nanan ananananananana nqjdnzjdnkdncejfvnesvsjefvvvvvvvvvvvvvvdfvsqsdc
-- aucune information ne doit être inventée ;
+- aucune information ne doit être inventée ;nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 - les technologies détectées sont la seule source autorisée ;
 - les chemins de fichiers doivent provenir de l'analyse ;
 - les flux doivent être justifiés par le code ;
@@ -71,6 +71,7 @@ class AIService:
         "recommendations",
         "installation",
         "usage",
+        "impo",
     )
 
     # ============================================================

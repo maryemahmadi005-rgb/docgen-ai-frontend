@@ -46,6 +46,7 @@ LANGUAGE_EXTENSIONS = {
     ".cs": "C#",
     ".swift": "Swift",
     ".kt": "Kotlin",
+    ".PI/KOTI",
     ".kts": "Kotlin",
 }
 

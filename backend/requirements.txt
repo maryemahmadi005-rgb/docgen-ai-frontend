@@ -6,8 +6,4 @@ SQLAlchemy>=2.0
 PyMySQL>=1.1
 python-dotenv>=1.0
 cryptography>=42.0
-cccc=>23232323
-cgvvg=>123456
-dhdhdhdhdh>13242
-vcvcvcv=>12
-
+pandas>=2.2.0

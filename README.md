@@ -1,12 +1,12 @@
 # Project Documentation
 
-Analyser et générer des documents de synthèse automatiquement à partir d'un code source
+Analyser et générer des documents automatiquement
 
 ---
 
 ## Fonctionnement général
 
-Le projet utilise une approche de génération de document de synthèse basée sur l'analyse du code source. Lorsqu'une requête est envoyée au serveur, le système analyse le code source et génère un document de synthèse en fonction des informations contenues dans le code.
+Le projet utilise une approche de génération de document basée sur l'apprentissage automatique, en utilisant les technologies Ollama et React. Le flux de travail consiste à collecter des données de base, à les analyser avec Ollama pour extraire des informations pertinentes, puis à générer un document synthétique en fonction de ces informations.
 
 ---
 
@@ -22,28 +22,26 @@ Le projet utilise une approche de génération de document de synthèse basée s
 
 ## Modules principaux
 
-### Backend
-**Fichier :** `backend/app/__init__.py`
+### Ollama
+**Fichier :** `backend/app/models/analysis.py`
 
-**Rôle :** Gère les appels HTTP vers Ollama et la validation du JSON retourné
+**Rôle :** Analyse de données et extraction d'informations
 
-**Classes principales :** `Flask`, `get_config`, `db`, `migrate`, `jwt`, `cors`
-**Dépendances internes :** `Flask`, `Python`
-**Routes exposées :** `/api/health`
-### Frontend
+**Classes principales :** `AnalysisModel`, `DetectedChange`
+**Dépendances internes :** `Flask`, `db`, `migrate`, `jwt`
+### React
 **Fichier :** `readme-sync-frontend/src/App.jsx`
 
-**Rôle :** Affiche le document de synthèse généré par le backend
+**Rôle :** Interface utilisateur et génération de document
 
-**Classes principales :** `App`, `useEffect`
-**Dépendances internes :** `React`
-**Routes exposées :** `/api/refresh`
+**Classes principales :** `App`, `DocumentGenerator`
+**Dépendances internes :** `Flask`, `api/client.js`
 
 ---
 
 ## Flux de données
 
-Le flux de données se compose des appels HTTP entre le frontend et le backend, ainsi que les requêtes à l'API Ollama. Le backend analyse le code source et génère un document de synthèse qui est ensuite envoyé au frontend pour être affiché.
+Les données collectées sont analysées par Ollama pour extraire des informations pertinentes, puis ces informations sont transmises à React pour être utilisées dans la génération du document.
 
 ---
 
@@ -84,7 +82,6 @@ Le flux de données se compose des appels HTTP entre le frontend et le backend, 
 | GET | `/api/repositories/<repo_id>` | `backend/app/api/repositories.py` |
 | PATCH | `/api/repositories/<repo_id>/sync-mode` | `backend/app/api/repositories.py` |
 | POST | `/api/webhooks/github/<repo_id>` | `backend/app/api/webhooks.py` |
-| GET | `/api/webhooks/<repo_id>/events` | `backend/app/api/webhooks.py` |
 
 ---
 
@@ -110,10 +107,6 @@ Aucune dépendance importante détectée.
 - npm install
 - npm run build
 
-**Configuration**
-
-- .env.example
-
 **Services externes**
 
 - Ollama
@@ -122,6 +115,7 @@ Aucune dépendance importante détectée.
 **Commandes de démarrage**
 
 - docker-compose up -d
+- python backend/app/__init__.py
 
 
 ---
@@ -130,49 +124,12 @@ Aucune dépendance importante détectée.
 
 **Démarrage de l'application**
 
-
 - docker-compose up -d
-- npm install
-- npm run build
-
-**API principale**
-
-- /api/health
-- /api/auth/register
-- /api/auth/login
-- /api/auth/refresh
-
-**Exemple d'utilisation**
-
-- curl -X POST https://localhost:5173/api/auth/refresh
+- python backend/app/__init__.py
 
 
 ---
 
 ## Recommandations
 
-Aucune recommandation spécifique détectée.
-
-## Test automatique webhook
-jbhjbdchbdc,nndc
-## Webhook Test 2 
-vgvhgvgh
-jn,,vb,nbv cfvgbhn
-,nbjhb vghjnbvghbhjn
-
-## General Operation
-
-This application analyzes the repository structure.
-
-It detects the technologies used by the project.
-
-It identifies important files and directories.
-
-It generates technical documentation automatically.
-
-The documentation can be synchronized when the repository changes.
-
-## Test Automatic Sync
-
-This section was added to test automatic README synchronization.
-nbvghjnsdcbshdccdbshchhb
+- {'type': "erreur de gestion d'erreur", 'description': "L'application n'a pas de mécanisme de gestion d'erreurs robuste."}

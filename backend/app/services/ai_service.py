@@ -29,6 +29,7 @@ Ollama, le modèle utilise sa fenêtre de contexte par défaut (souvent
 une documentation générique alors même que l'analyse était correcte.
 `num_ctx` est donc calculé/forcé ici en fonction de la taille réelle
 du prompt envoyé.
+hdhdh bebebeb rdvdhhshshs
 """
 
 from __future__ import annotations

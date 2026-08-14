@@ -6,7 +6,7 @@ Analyser et générer des documents automatiquement
 
 ## Fonctionnement général
 
-Le projet utilise une approche de génération de document basée sur l'apprentissage automatique, en utilisant les technologies Ollama et React. Le flux de travail consiste à collecter des données de base, à les analyser avec Ollama pour extraire des informations pertinentes, puis à générer un document synthétique en fonction de ces informations.
+Le projet utilise une approche hybride pour analyser les fichiers et générer des documents. Le flux de données se déroule comme suit : le frontend envoie une requête à l'API backend, qui envoie ensuite la requête au service d'analyse. Ce service utilise un modèle Ollama pour analyser le fichier et générer un document. Les résultats sont ensuite envoyés à la base de données, qui les stocke.
 
 ---
 
@@ -22,26 +22,28 @@ Le projet utilise une approche de génération de document basée sur l'apprenti
 
 ## Modules principaux
 
-### Ollama
-**Fichier :** `backend/app/models/analysis.py`
+### Backend
+**Fichier :** `backend/app/__init__.py`
 
-**Rôle :** Analyse de données et extraction d'informations
+**Rôle :** Gère les appels HTTP vers Ollama et la validation du JSON retourné
 
-**Classes principales :** `AnalysisModel`, `DetectedChange`
-**Dépendances internes :** `Flask`, `db`, `migrate`, `jwt`
-### React
+**Classes principales :** `Flask`, `get_config`, `db`, `migrate`, `jwt`, `cors`
+**Dépendances internes :** `Flask`, `Python`
+**Routes exposées :** `/api/health`
+### Frontend
 **Fichier :** `readme-sync-frontend/src/App.jsx`
 
-**Rôle :** Interface utilisateur et génération de document
+**Rôle :** Affiche le document généré par le backend
 
-**Classes principales :** `App`, `DocumentGenerator`
-**Dépendances internes :** `Flask`, `api/client.js`
+**Classes principales :** `App`, `api/client`
+**Dépendances internes :** `React`, `Python`
+**Routes exposées :** `/`
 
 ---
 
 ## Flux de données
 
-Les données collectées sont analysées par Ollama pour extraire des informations pertinentes, puis ces informations sont transmises à React pour être utilisées dans la génération du document.
+Flux non détecté.
 
 ---
 
@@ -107,15 +109,18 @@ Aucune dépendance importante détectée.
 - npm install
 - npm run build
 
+**Configuration**
+
+- .env.example
+
 **Services externes**
 
 - Ollama
-- Docker
+- base de données
 
 **Commandes de démarrage**
 
 - docker-compose up -d
-- python backend/app/__init__.py
 
 
 ---
@@ -125,20 +130,30 @@ Aucune dépendance importante détectée.
 **Démarrage de l'application**
 
 - docker-compose up -d
-- python backend/app/__init__.py
+- npm install
+- npm run build
+
+**API principale**
+
+- /api/health
+- /api/auth/register
+- /api/auth/login
+- /api/auth/refresh
+
+**Exemple d'utilisation**
+
+- curl -X POST https://localhost:5000/api/auth/refresh
+
+**Flux frontend/backend**
+
+- Frontend envoie une requête à l'API backend
+- API backend envoie la requête au service d'analyse
+- Service d'analyse utilise un modèle Ollama pour analyser le fichier et générer un document
+- Résultats sont envoyés à la base de données
 
 
 ---
 
 ## Recommandations
 
-- {'type': "erreur de gestion d'erreur", 'description': "L'application n'a pas de mécanisme de gestion d'erreurs robuste."}
-- 
-## Usage
-
-**Démarrage de l'application**
-
-- docker-compose up -d
-- python backend/app/__init__.py
-
-- 
+Aucune recommandation spécifique détectée.
